@@ -1,3 +1,3 @@
 #!/bin/bash
 
-git log | grep "Bench:" | head -n 1 | awk '{print $NF}'
+git log | grep "bench:" | head -n 1 | awk '{print $NF}'

@@ -95,9 +95,9 @@ jobs:
           DOCKER_USER=$(id -u):$(id -g) docker-compose run emscripten
           make -C .. emscripten_build ARCH=wasm embedded_nnue=no
 
-      - name: Verify stockfish.wasm < 1MB
+      - name: Verify stockfish.wasm < 2MB
         run: >
-          [ $(wc -c public/stockfish.wasm | awk '{ print $1 }') -lt 1000000 ]
+          [ $(wc -c public/stockfish.wasm | awk '{ print $1 }') -lt 2000000 ]
 
       - name: Test bench signature (Node)
         run: >
