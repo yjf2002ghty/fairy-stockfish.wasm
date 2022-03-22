@@ -5,8 +5,8 @@ this_dir=$(dirname "${BASH_SOURCE[0]}")
 uci_exe_default="node $this_dir/../public/uci.js"
 uci_exe=${uci_exe:-$uci_exe_default}
 
-# 350 knodes/s
-nps_target=${nps_target:-350000}
+# 200 knodes/s
+nps_target=${nps_target:-200000}
 
 # Hash = 128MB
 # Threads = 1
