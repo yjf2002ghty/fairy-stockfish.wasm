@@ -21,7 +21,7 @@ async function main(argv) {
   const FS = stockfish.FS;
   if (UCI_NNUE_FILE) {
     const buffer = await fs.promises.readFile(UCI_NNUE_FILE);
-    const filename = "/" + UCI_NNUE_FILE.replace(/^.*[\\\/]/, '');
+    const filename = "/" + UCI_NNUE_FILE.replace(/^.*[\\\/]/, "");
     FS.writeFile(filename, buffer);
     stockfish.postMessage(`setoption name EvalFile value ${filename}`);
   }
