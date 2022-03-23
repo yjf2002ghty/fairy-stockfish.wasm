@@ -107,4 +107,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: no-embedded-nnue
-          path: public/stockfish*
+          path: src/emscripten/public/stockfish*
