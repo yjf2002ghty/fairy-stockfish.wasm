@@ -103,3 +103,8 @@ jobs:
         run: >
           docker-compose run -e uci_exe="node public/uci.js" -e sign_ref=${{ env.sign_ref }} -e UCI_NNUE_FILE="../${{ env.default_net }}" node
           bash tests/bench-signature.sh
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: no-embedded-nnue
+          path: public/stockfish*
