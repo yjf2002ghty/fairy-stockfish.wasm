@@ -247,28 +247,46 @@ namespace {
      return int(0.5 + 1000 / (1 + std::exp((a - x) / b)));
   }
 
-  // load() is called when engine receives the "load" command.
+  // load() is called when engine receives the "load" or "check" command.
   // The function reads variant configuration files.
 
-  void load(istringstream& is) {
+  void load(istringstream& is, bool check = false) {
 
     string token;
     std::getline(is >> std::ws, token);
-    std::size_t end = token.find_last_not_of(' ');
-    if (end != std::string::npos)
-        Options["VariantPath"] = token.erase(end + 1);
-  }
 
-  // check() is called when engine receives the "check" command.
-  // The function reads a variant configuration file and validates it.
+    // The argument to load either is a here-doc or a file path
+    if (token.rfind("<<", 0) == 0)
+    {
+        // Trim the EOF marker
+        if (!(stringstream(token.substr(2)) >> token))
+            token = "";
 
-  void check(istringstream& is) {
-
-    string token;
-    std::getline(is >> std::ws, token);
-    std::size_t end = token.find_last_not_of(' ');
-    if (end != std::string::npos)
-        variants.parse<true>(token.erase(end + 1));
+        // Parse variant config till EOF marker
+        stringstream ss;
+        std::string line;
+        while (std::getline(cin, line) && line != token)
+            ss << line << std::endl;
+        if (check)
+            variants.parse_istream<true>(ss);
+        else
+        {
+            variants.parse_istream<false>(ss);
+            Options["UCI_Variant"].set_combo(variants.get_keys());
+        }
+    }
+    else
+    {
+        // store path if non-empty after trimming
+        std::size_t end = token.find_last_not_of(' ');
+        if (end != std::string::npos)
+        {
+            if (check)
+                variants.parse<true>(token.erase(end + 1));
+            else
+                Options["VariantPath"] = token.erase(end + 1);
+        }
+    }
   }
 
   #ifdef __EMSCRIPTEN__
@@ -392,7 +410,7 @@ void UCI::loop(int argc, char* argv[]) {
           Eval::NNUE::save_eval(filename);
       }
       else if (token == "load")     { load(is); argc = 1; } // continue reading stdin
-      else if (token == "check")    check(is);
+      else if (token == "check")    load(is, true);
       // UCI-Cyclone omits the "position" keyword
       else if (token == "fen" || token == "startpos")
       {
