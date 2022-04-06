@@ -1,16 +1,15 @@
 {
-  "name": "stockfish-nnue.wasm",
-  "version": "1.0.0-alpha.1",
-  "description": "WebAssembly port of Stockfish with NNUE support, optimized via WASM SIMD",
-  "author": "Hiroshi Ogawa",
+  "name": "fairy-stockfish-nnue.wasm",
+  "version": "1.0.0",
+  "description": "WebAssembly port of Fairy-Stockfish with NNUE support, optimized via WASM SIMD",
+  "author": "Fabian Fichter",
   "license": "GPL-3.0",
-  "homepage": "https://github.com/hi-ogawa/Stockfish",
+  "homepage": "https://github.com/ianfab/stockfish.wasm",
   "files": [
     "AUTHORS",
     "Copying.txt",
     "stockfish.js",
     "stockfish.wasm",
-    "stockfish-no-embedded-nnue.wasm",
     "stockfish.worker.js",
     "uci.js"
   ]
