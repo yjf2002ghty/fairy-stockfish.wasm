@@ -112,6 +112,8 @@ jobs:
       - name: Publish to NPM
         if: startsWith(github.ref, 'refs/tags/')
         working-directory: src/emscripten/public
-        run: npm publish
+        run: |
+          npm config set //registry.npmjs.org/:_authToken ${NPM_TOKEN}
+          npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
