@@ -1,13 +1,13 @@
-## stockfish-nnue.wasm
+## fairy-stockfish-nnue.wasm
 
-[![npm version](https://badge.fury.io/js/stockfish-nnue.wasm.svg)](https://badge.fury.io/js/stockfish-nnue.wasm)
-[![CI](https://github.com/hi-ogawa/Stockfish/actions/workflows/ci.yml/badge.svg)](https://github.com/hi-ogawa/Stockfish/actions/workflows/ci.yml)
+[![npm version](https://badge.fury.io/js/fairy-stockfish-nnue.wasm.svg)](https://badge.fury.io/js/fairy-stockfish-nnue.wasm)
+[![CI](https://github.com/ianfab/stockfish.wasm/actions/workflows/ci.yml/badge.svg)](https://github.com/ianfab/stockfish.wasm/actions/workflows/ci.yml)
 
-WebAssembly port of [Stockfish](https://github.com/official-stockfish/Stockfish) with NNUE support, currently used by [lichess.org](https://lichess.org/blog/YDOKRxQAACgAREB3/stockfish-13-nnue-on-lichess) for client-side analysis.
+WebAssembly port of [Fairy-Stockfish](https://github.com/ianfab/Fairy-Stockfish) with NNUE support, currently used by [pychess.org](https://pychess.org) for client-side analysis.
 
 For development, see [`src/emscripten/README.md`](src/emscripten/README.md).
 
-Current default branch is `emscripten-237ed1ef-2.0.26`. See [here](https://github.com/hi-ogawa/Stockfish/wiki/Branch-policy) for the detail about the branch policy of this repository.
+Current default branch is `nnue`.
 
 The original `README.md` follows below.
 
