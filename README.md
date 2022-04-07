@@ -1,7 +1,7 @@
 ## fairy-stockfish-nnue.wasm
 
 [![npm version](https://badge.fury.io/js/fairy-stockfish-nnue.wasm.svg)](https://badge.fury.io/js/fairy-stockfish-nnue.wasm)
-[![CI](https://github.com/ianfab/stockfish.wasm/actions/workflows/ci.yml/badge.svg)](https://github.com/ianfab/stockfish.wasm/actions/workflows/ci.yml)
+[![CI](https://github.com/ianfab/fairy-stockfish.wasm/actions/workflows/ci.yml/badge.svg)](https://github.com/ianfab/fairy-stockfish.wasm/actions/workflows/ci.yml)
 
 WebAssembly port of [Fairy-Stockfish](https://github.com/ianfab/Fairy-Stockfish) with NNUE support, currently used by [pychess.org](https://www.pychess.org) for client-side analysis.
 
