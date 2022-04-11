@@ -5,6 +5,8 @@
 
 WebAssembly port of [Fairy-Stockfish](https://github.com/ianfab/Fairy-Stockfish) with NNUE support, currently used by [pychess.org](https://www.pychess.org) for client-side analysis.
 
+See [fairy-stockfish-nnue-wasm-demo](https://github.com/ianfab/fairy-stockfish-nnue-wasm-demo) for a demo.
+
 For development, see [`src/emscripten/README.md`](src/emscripten/README.md).
 
 Current default branch is `nnue`.
