@@ -113,6 +113,7 @@ struct Variant {
   bool nFoldValueAbsolute = false;
   bool perpetualCheckIllegal = false;
   bool moveRepetitionIllegal = false;
+  ChasingRule chasingRule = NO_CHASING;
   Value stalemateValue = VALUE_DRAW;
   bool stalematePieceCount = false; // multiply stalemate value by sign(count(~stm) - count(stm))
   Value checkmateValue = -VALUE_MATE;
@@ -217,7 +218,7 @@ struct Variant {
               nnueKing = NO_PIECE_TYPE;
       }
       int nnueSquares = (maxRank + 1) * (maxFile + 1);
-      nnueUsePockets = (pieceDrops && (!mustDrop || capturesToHand)) || seirawanGating;
+      nnueUsePockets = (pieceDrops && (capturesToHand || (!mustDrop && !arrowGating && pieceTypes.size() != 1))) || seirawanGating;
       int nnuePockets = nnueUsePockets ? 2 * int(maxFile + 1) : 0;
       int nnueNonDropPieceIndices = (2 * pieceTypes.size() - (nnueKing != NO_PIECE_TYPE)) * nnueSquares;
       int nnuePieceIndices = nnueNonDropPieceIndices + 2 * (pieceTypes.size() - (nnueKing != NO_PIECE_TYPE)) * nnuePockets;
