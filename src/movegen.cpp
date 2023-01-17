@@ -26,31 +26,38 @@ namespace Stockfish {
 namespace {
 
   template<MoveType T>
-  ExtMove* make_move_and_gating(const Position& pos, ExtMove* moveList, Color us, Square from, Square to) {
+  ExtMove* make_move_and_gating(const Position& pos, ExtMove* moveList, Color us, Square from, Square to, PieceType pt = NO_PIECE_TYPE) {
 
-    // Arrow gating moves
-    if (pos.arrow_gating())
+    // Wall placing moves
+    if (pos.wall_gating())
     {
-        for (PieceType pt_gating : pos.piece_types())
-            if (pos.count_in_hand(us, pt_gating) > 0)
-            {
-                Bitboard b = pos.drop_region(us, pt_gating) & moves_bb(us, type_of(pos.piece_on(from)), to, pos.pieces() ^ from) & ~(pos.pieces() ^ from);
-                while (b)
-                    *moveList++ = make_gating<T>(from, to, pt_gating, pop_lsb(b));
-            }
+        Bitboard b = pos.board_bb() & ~((pos.pieces() ^ from) | to);
+        if (T == CASTLING)
+        {
+            Square kto = make_square(to > from ? pos.castling_kingside_file() : pos.castling_queenside_file(), pos.castling_rank(us));
+            Direction step = kto > from ? EAST : WEST;
+            Square rto = kto - step;
+            b ^= square_bb(to) ^ kto ^ rto;
+        }
+        if (T == EN_PASSANT)
+            b ^= to - pawn_push(us);
+        if (pos.variant()->arrowGating)
+            b &= moves_bb(us, type_of(pos.piece_on(from)), to, pos.pieces() ^ from);
+        while (b)
+            *moveList++ = make_gating<T>(from, to, pt, pop_lsb(b));
         return moveList;
     }
 
-    *moveList++ = make<T>(from, to);
+    *moveList++ = make<T>(from, to, pt);
 
     // Gating moves
     if (pos.seirawan_gating() && (pos.gates(us) & from))
         for (PieceType pt_gating : pos.piece_types())
-            if (pos.count_in_hand(us, pt_gating) > 0 && (pos.drop_region(us, pt_gating) & from))
+            if (pos.can_drop(us, pt_gating) && (pos.drop_region(us, pt_gating) & from))
                 *moveList++ = make_gating<T>(from, to, pt_gating, from);
     if (pos.seirawan_gating() && T == CASTLING && (pos.gates(us) & to))
         for (PieceType pt_gating : pos.piece_types())
-            if (pos.count_in_hand(us, pt_gating) > 0 && (pos.drop_region(us, pt_gating) & to))
+            if (pos.can_drop(us, pt_gating) && (pos.drop_region(us, pt_gating) & to))
                 *moveList++ = make_gating<T>(from, to, pt_gating, to);
 
     return moveList;
@@ -63,10 +70,10 @@ namespace {
     {
         for (PieceType pt : pos.promotion_piece_types())
             if (!pos.promotion_limit(pt) || pos.promotion_limit(pt) > pos.count(c, pt))
-                *moveList++ = make<PROMOTION>(to - D, to, pt);
+                moveList = make_move_and_gating<PROMOTION>(pos, moveList, pos.side_to_move(), to - D, to, pt);
         PieceType pt = pos.promoted_piece_type(PAWN);
         if (pt && !(pos.piece_promotion_on_capture() && pos.empty(to)))
-            *moveList++ = make<PIECE_PROMOTION>(to - D, to);
+            moveList = make_move_and_gating<PIECE_PROMOTION>(pos, moveList, pos.side_to_move(), to - D, to);
     }
 
     return moveList;
@@ -76,7 +83,7 @@ namespace {
   ExtMove* generate_drops(const Position& pos, ExtMove* moveList, PieceType pt, Bitboard b) {
     assert(Type != CAPTURES);
     // Do not generate virtual drops for perft and at root
-    if (pos.count_in_hand(Us, pt) > 0 || (Type != NON_EVASIONS && pos.two_boards() && pos.allow_virtual_drop(Us, pt)))
+    if (pos.can_drop(Us, pt) || (Type != NON_EVASIONS && pos.two_boards() && pos.allow_virtual_drop(Us, pt)))
     {
         // Restrict to valid target
         b &= pos.drop_region(Us, pt);
@@ -90,7 +97,7 @@ namespace {
             while (b2)
                 *moveList++ = make_drop(pop_lsb(b2), pt, pos.promoted_piece_type(pt));
         }
-        if (Type == QUIET_CHECKS || pos.count_in_hand(Us, pt) <= 0)
+        if (Type == QUIET_CHECKS || !pos.can_drop(Us, pt))
             b &= pos.check_squares(pt);
         while (b)
             *moveList++ = make_drop(pop_lsb(b), pt, pt);
@@ -114,9 +121,9 @@ namespace {
     Bitboard  TRank3BB =  forward_ranks_bb(Us, relative_rank(Us, pos.double_step_rank_min(), pos.max_rank()))
                         & ~shift<Up>(forward_ranks_bb(Us, relative_rank(Us, pos.double_step_rank_max(), pos.max_rank())));
 
-    const Bitboard emptySquares = Type == QUIETS || Type == QUIET_CHECKS ? target : ~pos.pieces() & pos.board_bb();
-    const Bitboard enemies      = Type == EVASIONS ? (pos.checkers() & pos.non_sliding_riders() ? pos.pieces(Them) : pos.checkers())
-                                : Type == CAPTURES ? target : pos.pieces(Them);
+    const Bitboard emptySquares = (Type == QUIETS || Type == QUIET_CHECKS ? target : ~pos.pieces()) & pos.board_bb(Us, PAWN);
+    const Bitboard enemies      = (Type == EVASIONS ? (pos.checkers() & pos.non_sliding_riders() ? pos.pieces(Them) : pos.checkers())
+                                 : Type == CAPTURES ? target : pos.pieces(Them)) & pos.board_bb(Us, PAWN);
 
     Bitboard pawnsOn7    = pos.pieces(Us, PAWN) &  TRank7BB;
     Bitboard pawnsNotOn7 = pos.pieces(Us, PAWN) & (pos.mandatory_pawn_promotion() ? ~TRank7BB : AllSquares);
@@ -147,13 +154,13 @@ namespace {
         while (b1)
         {
             Square to = pop_lsb(b1);
-            *moveList++ = make_move(to - Up, to);
+            moveList = make_move_and_gating<NORMAL>(pos, moveList, Us, to - Up, to);
         }
 
         while (b2)
         {
             Square to = pop_lsb(b2);
-            *moveList++ = make_move(to - Up - Up, to);
+            moveList = make_move_and_gating<NORMAL>(pos, moveList, Us, to - Up - Up, to);
         }
     }
 
@@ -216,13 +223,13 @@ namespace {
         while (b1)
         {
             Square to = pop_lsb(b1);
-            *moveList++ = make_move(to - UpRight, to);
+            moveList = make_move_and_gating<NORMAL>(pos, moveList, Us, to - UpRight, to);
         }
 
         while (b2)
         {
             Square to = pop_lsb(b2);
-            *moveList++ = make_move(to - UpLeft, to);
+            moveList = make_move_and_gating<NORMAL>(pos, moveList, Us, to - UpLeft, to);
         }
 
         if (pos.ep_square() != SQ_NONE)
@@ -238,7 +245,7 @@ namespace {
             assert(b1);
 
             while (b1)
-                *moveList++ = make<EN_PASSANT>(pop_lsb(b1), pos.ep_square());
+                moveList = make_move_and_gating<EN_PASSANT>(pos, moveList, Us, pop_lsb(b1), pos.ep_square());
         }
     }
 
@@ -335,6 +342,7 @@ namespace {
                 target = pos.checkers();
         }
 
+        // Remove inaccesible squares (outside board + wall squares)
         target &= pos.board_bb();
 
         moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
@@ -342,7 +350,7 @@ namespace {
             if (pt != PAWN && pt != KING)
                 moveList = generate_moves<Us, Checks>(pos, moveList, pt, target);
         // generate drops
-        if (pos.piece_drops() && Type != CAPTURES && (pos.count_in_hand(Us, ALL_PIECES) > 0 || pos.two_boards()))
+        if (pos.piece_drops() && Type != CAPTURES && (pos.can_drop(Us, ALL_PIECES) || pos.two_boards()))
             for (PieceType pt : pos.piece_types())
                 moveList = generate_drops<Us, Type>(pos, moveList, pt, target & ~pos.pieces(~Us));
 
@@ -356,13 +364,13 @@ namespace {
         }
 
         // Special moves
-        if (pos.cambodian_moves() && pos.gates(Us))
+        if (pos.cambodian_moves() && pos.gates(Us) && Type != CAPTURES)
         {
-            if (Type != CAPTURES && Type != EVASIONS && (pos.pieces(Us, KING) & pos.gates(Us)))
+            if (Type != EVASIONS && (pos.pieces(Us, KING) & pos.gates(Us)))
             {
                 Square from = pos.square<KING>(Us);
                 Bitboard b = PseudoAttacks[WHITE][KNIGHT][from] & rank_bb(rank_of(from + (Us == WHITE ? NORTH : SOUTH)))
-                            & target & ~pos.pieces();
+                    & target & ~pos.pieces();
                 while (b)
                     moveList = make_move_and_gating<SPECIAL>(pos, moveList, Us, from, pop_lsb(b));
             }
@@ -372,7 +380,7 @@ namespace {
             {
                 Square from = pop_lsb(b);
                 Square to = from + 2 * (Us == WHITE ? NORTH : SOUTH);
-                if (is_ok(to) && (target & to))
+                if (is_ok(to) && (target & to & ~pos.pieces()))
                     moveList = make_move_and_gating<SPECIAL>(pos, moveList, Us, from, to);
             }
         }

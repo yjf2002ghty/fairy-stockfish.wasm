@@ -54,6 +54,7 @@ struct StateInfo {
   CheckCount checksRemaining[COLOR_NB];
   Square epSquare;
   Square castlingKingSquare[COLOR_NB];
+  Bitboard wallSquares;
   Bitboard gatesBB[COLOR_NB];
 
   // Not copied when making a move (will be recomputed anyhow)
@@ -161,6 +162,7 @@ public:
   bool captures_to_hand() const;
   bool first_rank_pawn_drops() const;
   bool drop_on_top() const;
+  bool can_drop(Color c, PieceType pt) const;
   EnclosingRule enclosing_drop() const;
   Bitboard drop_region(Color c) const;
   Bitboard drop_region(Color c, PieceType pt) const;
@@ -170,7 +172,7 @@ public:
   PieceType drop_no_doubled() const;
   bool immobility_illegal() const;
   bool gating() const;
-  bool arrow_gating() const;
+  bool wall_gating() const;
   bool seirawan_gating() const;
   bool cambodian_moves() const;
   Bitboard diagonal_lines() const;
@@ -300,7 +302,10 @@ public:
   bool has_game_cycle(int ply) const;
   bool has_repeated() const;
   Bitboard chased() const;
-  int counting_limit() const;
+  int count_limit(Color sideToCount) const;
+  int board_honor_counting_ply(int countStarted) const;
+  bool board_honor_counting_shorter(int countStarted) const;
+  int counting_limit(int countStarted) const;
   int counting_ply(int countStarted) const;
   int rule50_count() const;
   Score psq_score() const;
@@ -390,7 +395,7 @@ inline bool Position::two_boards() const {
 
 inline Bitboard Position::board_bb() const {
   assert(var != nullptr);
-  return board_size_bb(var->maxFile, var->maxRank);
+  return board_size_bb(var->maxFile, var->maxRank) & ~st->wallSquares;
 }
 
 inline Bitboard Position::board_bb(Color c, PieceType pt) const {
@@ -719,9 +724,9 @@ inline bool Position::gating() const {
   return var->gating;
 }
 
-inline bool Position::arrow_gating() const {
+inline bool Position::wall_gating() const {
   assert(var != nullptr);
-  return var->arrowGating;
+  return var->arrowGating || var->duckGating;
 }
 
 inline bool Position::seirawan_gating() const {
@@ -1179,8 +1184,24 @@ inline int Position::game_ply() const {
   return gamePly;
 }
 
+inline int Position::board_honor_counting_ply(int countStarted) const {
+  return countStarted == 0 ?
+      st->countingPly :
+      countStarted < 0 ? 0 : std::max(1 + gamePly - countStarted, 0);
+}
+
+inline bool Position::board_honor_counting_shorter(int countStarted) const {
+  return counting_rule() == CAMBODIAN_COUNTING && 126 - board_honor_counting_ply(countStarted) < st->countingLimit - st->countingPly;
+}
+
+inline int Position::counting_limit(int countStarted) const {
+  return board_honor_counting_shorter(countStarted) ? 126 : st->countingLimit;
+}
+
 inline int Position::counting_ply(int countStarted) const {
-  return countStarted == 0 || (count<ALL_PIECES>(WHITE) <= 1 || count<ALL_PIECES>(BLACK) <= 1) ? st->countingPly : countStarted < 0 ? 0 : std::min(st->countingPly, std::max(1 + gamePly - countStarted, 0));
+  return !count<PAWN>() && (count<ALL_PIECES>(WHITE) <= 1 || count<ALL_PIECES>(BLACK) <= 1) && !board_honor_counting_shorter(countStarted) ?
+      st->countingPly :
+      board_honor_counting_ply(countStarted);
 }
 
 inline int Position::rule50_count() const {
@@ -1214,7 +1235,7 @@ inline bool Position::capture(Move m) const {
 
 inline bool Position::virtual_drop(Move m) const {
   assert(is_ok(m));
-  return type_of(m) == DROP && count_in_hand(side_to_move(), in_hand_piece_type(m)) <= 0;
+  return type_of(m) == DROP && !can_drop(side_to_move(), in_hand_piece_type(m));
 }
 
 inline Piece Position::captured_piece() const {
@@ -1340,19 +1361,21 @@ inline Value Position::material_counting_result() const {
 }
 
 inline void Position::add_to_hand(Piece pc) {
+  if (variant()->freeDrops) return;
   pieceCountInHand[color_of(pc)][type_of(pc)]++;
   pieceCountInHand[color_of(pc)][ALL_PIECES]++;
   psq += PSQT::psq[pc][SQ_NONE];
 }
 
 inline void Position::remove_from_hand(Piece pc) {
+  if (variant()->freeDrops) return;
   pieceCountInHand[color_of(pc)][type_of(pc)]--;
   pieceCountInHand[color_of(pc)][ALL_PIECES]--;
   psq -= PSQT::psq[pc][SQ_NONE];
 }
 
 inline void Position::drop_piece(Piece pc_hand, Piece pc_drop, Square s) {
-  assert(pieceCountInHand[color_of(pc_hand)][type_of(pc_hand)] > 0 || var->twoBoards);
+  assert(can_drop(color_of(pc_hand), type_of(pc_hand)) || var->twoBoards);
   put_piece(pc_drop, s, pc_drop != pc_hand, pc_drop != pc_hand ? pc_hand : NO_PIECE);
   remove_from_hand(pc_hand);
   virtualPieces += (pieceCountInHand[color_of(pc_hand)][type_of(pc_hand)] < 0);
@@ -1363,7 +1386,11 @@ inline void Position::undrop_piece(Piece pc_hand, Square s) {
   remove_piece(s);
   board[s] = NO_PIECE;
   add_to_hand(pc_hand);
-  assert(pieceCountInHand[color_of(pc_hand)][type_of(pc_hand)] > 0 || var->twoBoards);
+  assert(can_drop(color_of(pc_hand), type_of(pc_hand)) || var->twoBoards);
+}
+
+inline bool Position::can_drop(Color c, PieceType pt) const {
+  return variant()->freeDrops || count_in_hand(c, pt) > 0;
 }
 
 } // namespace Stockfish

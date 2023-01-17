@@ -60,6 +60,7 @@ struct Variant {
   bool mandatoryPiecePromotion = false;
   bool pieceDemotion = false;
   bool blastOnCapture = false;
+  bool petrifyOnCapture = false;
   bool doubleStep = true;
   Rank doubleStepRank = RANK_2;
   Rank doubleStepRankMin = RANK_2;
@@ -96,6 +97,7 @@ struct Variant {
   bool immobilityIllegal = false;
   bool gating = false;
   bool arrowGating = false;
+  bool duckGating = false;
   bool seirawanGating = false;
   bool cambodianMoves = false;
   Bitboard diagonalLines = 0;
@@ -105,6 +107,7 @@ struct Variant {
   bool flyingGeneral = false;
   Rank soldierPromotionRank = RANK_1;
   EnclosingRule flipEnclosedPieces = NO_ENCLOSING;
+  bool freeDrops = false;
 
   // game end
   int nMoveRule = 50;
@@ -147,6 +150,7 @@ struct Variant {
   int kingSquareIndex[SQUARE_NB];
   int nnueMaxPieces;
   bool endgameEval = false;
+  bool shogiStylePromotions = false;
 
   void add_piece(PieceType pt, char c, std::string betza = "", char c2 = ' ') {
       pieceToChar[make_piece(WHITE, pt)] = toupper(c);
@@ -218,7 +222,7 @@ struct Variant {
               nnueKing = NO_PIECE_TYPE;
       }
       int nnueSquares = (maxRank + 1) * (maxFile + 1);
-      nnueUsePockets = (pieceDrops && (capturesToHand || (!mustDrop && !arrowGating && pieceTypes.size() != 1))) || seirawanGating;
+      nnueUsePockets = (pieceDrops && (capturesToHand || (!mustDrop && pieceTypes.size() != 1))) || seirawanGating;
       int nnuePockets = nnueUsePockets ? 2 * int(maxFile + 1) : 0;
       int nnueNonDropPieceIndices = (2 * pieceTypes.size() - (nnueKing != NO_PIECE_TYPE)) * nnueSquares;
       int nnuePieceIndices = nnueNonDropPieceIndices + 2 * (pieceTypes.size() - (nnueKing != NO_PIECE_TYPE)) * nnuePockets;
@@ -238,8 +242,10 @@ struct Variant {
       // Map king squares to enumeration of actually available squares.
       // E.g., for xiangqi map from 0-89 to 0-8.
       // Variants might be initialized before bitboards, so do not rely on precomputed bitboards (like SquareBB).
+      // Furthermore conclude() might be called on invalid configuration during validation,
+      // therefore skip proper initialization in case of invalid board size.
       int nnueKingSquare = 0;
-      if (nnueKing)
+      if (nnueKing && nnueSquares <= SQUARE_NB)
           for (Square s = SQ_A1; s < nnueSquares; ++s)
           {
               Square bitboardSquare = Square(s + s / (maxFile + 1) * (FILE_MAX - maxFile));
@@ -285,6 +291,15 @@ struct Variant {
                     && !capturesToHand
                     && !twoBoards
                     && kingType == KING;
+    
+      shogiStylePromotions = false;
+      for (PieceType current: promotedPieceType)
+          if (current != NO_PIECE_TYPE)
+          {
+              shogiStylePromotions = true;
+              break;
+          }
+
       return this;
   }
 };
