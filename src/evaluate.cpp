@@ -1082,6 +1082,21 @@ namespace {
         score += bonus - PassedFile * edge_distance(file_of(s), pos.max_file());
     }
 
+    // Passed custom pawns
+    for (PieceSet ps = pos.variant()->promotionPawnTypes[Us] & ~piece_set(PAWN); ps;)
+    {
+        PieceType pt = pop_lsb(ps);
+        Bitboard b2 = pos.pieces(Us, pt);
+        while (b2)
+        {
+            Square s = pop_lsb(b2);
+            if (pos.promotion_square(Us, s) == SQ_NONE || (pos.pieces(Them, pt) & forward_file_bb(Us, s)))
+                continue;
+            int r = std::max(RANK_8 - std::max(relative_rank(Us, pos.promotion_square(Us, s), pos.max_rank()) - relative_rank(Us, s, pos.max_rank()), 0), 0);
+            score += PassedRank[r];
+        }
+    }
+
     // Scale by maximum promotion piece value
     Value maxMg = VALUE_ZERO, maxEg = VALUE_ZERO;
     for (PieceSet ps = pos.promotion_piece_types(Us); ps;)
@@ -1160,8 +1175,8 @@ namespace {
     int weight = pos.count<ALL_PIECES>(Us) - 3 + std::min(pe->blocked_count(), 9);
     Score score = make_score(bonus * weight * weight / 16, 0);
 
-    if (pos.capture_the_flag(Us))
-        score += make_score(200, 200) * popcount(behind & safe & pos.capture_the_flag(Us));
+    if (pos.flag_region(Us))
+        score += make_score(200, 200) * popcount(behind & safe & pos.flag_region(Us));
 
     if constexpr (T)
         Trace::add(SPACE, Us, score);
@@ -1181,11 +1196,10 @@ namespace {
     Score score = SCORE_ZERO;
 
     // Capture the flag
-    if (pos.capture_the_flag(Us))
+    if (pos.flag_region(Us))
     {
-        PieceType ptCtf = pos.capture_the_flag_piece();
-        Bitboard ctfPieces = pos.pieces(Us, ptCtf);
-        Bitboard ctfTargets = pos.capture_the_flag(Us) & pos.board_bb();
+        Bitboard ctfPieces = pos.pieces(Us, pos.flag_piece(Us));
+        Bitboard ctfTargets = pos.flag_region(Us) & pos.board_bb();
         Bitboard onHold = 0;
         Bitboard onHold2 = 0;
         Bitboard processed = 0;
@@ -1198,6 +1212,8 @@ namespace {
         // Traverse all paths of the CTF pieces to the CTF targets.
         // Put squares that are attacked or occupied on hold for one iteration.
         // This reflects that likely a move will be needed to block or capture the attack.
+        // If all piece types are eligible, use the king path as a proxy for distance.
+        PieceType ptCtf = pos.flag_piece(Us) == ALL_PIECES ? KING : pos.flag_piece(Us);
         for (int dist = 0; (ctfPieces || onHold || onHold2) && (ctfTargets & ~processed); dist++)
         {
             int wins = popcount(ctfTargets & ctfPieces);
@@ -1345,10 +1361,15 @@ namespace {
   template<Tracing T>
   Value Evaluation<T>::winnable(Score score) const {
 
-    // No initiative bonus for extinction variants
+    // No initiative bonus for variants that do not require sufficient mating material, e.g., extinction variants.
+    // This protects them from misidentification as drawish.
     int complexity = 0;
     bool pawnsOnBothFlanks = true;
-    if (pos.extinction_value() == VALUE_NONE && !pos.captures_to_hand() && !pos.connect_n() && !pos.material_counting())
+    if (   pos.extinction_value() == VALUE_NONE
+        && !pos.captures_to_hand()
+        && !pos.connect_n()
+        && !pos.material_counting()
+        && !(pos.flag_region(WHITE) || pos.flag_region(BLACK)))
     {
     int outflanking = !pos.count<KING>(WHITE) || !pos.count<KING>(BLACK) ? 0
                      :  distance<File>(pos.square<KING>(WHITE), pos.square<KING>(BLACK))

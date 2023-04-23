@@ -115,7 +115,7 @@ namespace {
         v->promotionPawnType[WHITE] = v->promotionPawnType[BLACK] = CUSTOM_PIECE_1;
         v->promotionPawnTypes[WHITE] = v->promotionPawnTypes[BLACK] = piece_set(CUSTOM_PIECE_1);
         v->enPassantTypes[WHITE] = v->enPassantTypes[BLACK] = piece_set(CUSTOM_PIECE_1);
-        v->nMoveRuleTypes[WHITE] = v->nMoveRuleTypes[BLACK] = piece_set(CUSTOM_PIECE_1);
+        v->nMoveRuleTypes[WHITE] = v->nMoveRuleTypes[BLACK] = NO_PIECE_SET; // backwards pawn moves are reversible
         return v;
     }
     // Legan Chess
@@ -325,7 +325,7 @@ namespace {
     // https://lichess.org/variant/kingOfTheHill
     Variant* kingofthehill_variant() {
         Variant* v = chess_variant_base()->init();
-        v->flagPiece = KING;
+        v->flagPiece[WHITE] = v->flagPiece[BLACK] = KING;
         v->flagRegion[WHITE] = (Rank4BB | Rank5BB) & (FileDBB | FileEBB);
         v->flagRegion[BLACK] = (Rank4BB | Rank5BB) & (FileDBB | FileEBB);
         v->flagMove = false;
@@ -336,7 +336,7 @@ namespace {
     Variant* racingkings_variant() {
         Variant* v = chess_variant_base()->init();
         v->startFen = "8/8/8/8/8/8/krbnNBRK/qrbnNBRQ w - - 0 1";
-        v->flagPiece = KING;
+        v->flagPiece[WHITE] = v->flagPiece[BLACK] = KING;
         v->flagRegion[WHITE] = Rank8BB;
         v->flagRegion[BLACK] = Rank8BB;
         v->flagMove = true;
@@ -481,6 +481,7 @@ namespace {
         v->extinctionPseudoRoyal = true;
         return v;
     }
+
 #ifdef ALLVARS
     // Duck chess
     Variant* duck_variant() {
@@ -494,7 +495,8 @@ namespace {
         v->stalemateValue = VALUE_MATE;
         return v;
     }
-    
+#endif
+
     Variant* isolation_variant() { //https://boardgamegeek.com/boardgame/1875/isolation
         Variant* v = chess_variant_base()->init();
         v->maxRank = RANK_8;
@@ -539,7 +541,19 @@ namespace {
         v->pastGating = true;
         return v;
     }
-#endif
+
+    Variant* fox_and_hounds_variant() { //https://boardgamegeek.com/boardgame/148180/fox-and-hounds
+        Variant* v = chess_variant_base()->init();
+        v->reset_pieces();
+        v->add_piece(CUSTOM_PIECE_1, 'h', "mfF"); //Hound
+        v->add_piece(CUSTOM_PIECE_2, 'f', "mF"); //Fox
+        v->startFen = "1h1h1h1h/8/8/8/8/8/8/4F3 w - - 0 1";
+        v->stalemateValue = -VALUE_MATE;
+        v->flagPiece[WHITE] = CUSTOM_PIECE_2;
+        v->flagRegion[WHITE] = Rank8BB;
+        return v;
+    }
+
     // Three-check chess
     // Check the king three times to win
     // https://lichess.org/variant/threeCheck
@@ -831,7 +845,7 @@ namespace {
         v->mandatoryPiecePromotion = true;
         v->immobilityIllegal = false;
         v->shogiPawnDropMateIllegal = false;
-        v->flagPiece = KING;
+        v->flagPiece[WHITE] = v->flagPiece[BLACK] = KING;
         v->flagRegion[WHITE] = Rank4BB;
         v->flagRegion[BLACK] = Rank1BB;
         v->dropNoDoubled = NO_PIECE_TYPE;
@@ -963,6 +977,18 @@ namespace {
         v->promotionPieceTypes[BLACK] = piece_set(CHANCELLOR) | ROOK | BISHOP | KNIGHT;
         return v;
     }
+    // Sort of almost chess
+    // One queen is replaced by a chancellor
+    // https://en.wikipedia.org/wiki/Almost_chess#Sort_of_almost_chess
+    Variant* sortofalmost_variant() {
+        Variant* v = chess_variant();
+        v->pieceToCharTable = "PNBRQ...........CKpnbrq...........ck";
+        v->add_piece(CHANCELLOR, 'c');
+        v->startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBCKBNR w KQkq - 0 1";
+        v->promotionPieceTypes[WHITE] = piece_set(CHANCELLOR) | ROOK | BISHOP | KNIGHT;
+        v->promotionPieceTypes[BLACK] = piece_set(QUEEN) | ROOK | BISHOP | KNIGHT;
+        return v;
+    }
     // Chigorin chess
     // Asymmetric variant with knight vs. bishop movements
     // https://www.chessvariants.com/diffsetup.dir/chigorin.html
@@ -1065,7 +1091,7 @@ namespace {
         v->doubleStep = false;
         v->castling = false;
         v->stalemateValue = -VALUE_MATE;
-        v->flagPiece = BREAKTHROUGH_PIECE;
+        v->flagPiece[WHITE] = v->flagPiece[BLACK] = BREAKTHROUGH_PIECE;
         v->flagRegion[WHITE] = Rank8BB;
         v->flagRegion[BLACK] = Rank1BB;
         return v;
@@ -1396,7 +1422,7 @@ namespace {
         v->doubleStep = false;
         v->castling = false;
         v->stalemateValue = -VALUE_MATE;
-        v->flagPiece = KNIGHT;
+        v->flagPiece[WHITE] = v->flagPiece[BLACK] = KNIGHT;
         v->flagRegion[WHITE] = make_bitboard(SQ_E5);
         v->flagRegion[BLACK] = make_bitboard(SQ_E5);
         v->flagMove = true;
@@ -1542,7 +1568,7 @@ namespace {
         v->remove_piece(KNIGHT);
         v->add_piece(CHANCELLOR, 'w'); // wolf
         v->add_piece(ARCHBISHOP, 'f'); // fox
-        v->add_piece(CUSTOM_PIECE_1, 's', "fKifmnD"); // seargent
+        v->add_piece(CUSTOM_PIECE_1, 's', "fKifmnD"); // sergeant
         v->add_piece(CUSTOM_PIECE_2, 'n', "NN"); // nightrider
         v->add_piece(CUSTOM_PIECE_3, 'e', "NNQ"); // elephant
         v->startFen = "qwfrbbnk/pssppssp/1pp2pp1/8/8/8/8/1PP2PP1/PSSPPSSP/KNBBRFWQ w - - 0 1";
@@ -1577,6 +1603,8 @@ namespace {
         v->promotionRegion[BLACK] = Rank1BB;
         v->castlingKingsideFile = FILE_H;
         v->castlingQueensideFile = FILE_D;
+        v->castlingRookKingsideFile = FILE_I;
+        v->castlingRookQueensideFile = FILE_B;
         v->castlingRank = RANK_2;
         v->doubleStepRegion[WHITE] = Rank3BB;
         v->doubleStepRegion[BLACK] = Rank8BB;
@@ -1770,13 +1798,14 @@ void VariantMap::init() {
     add("horde", horde_variant());
     add("nocheckatomic", nocheckatomic_variant());
     add("atomic", atomic_variant());
-#ifdef ALLVARS
     add("isolation", isolation_variant());
     add("isolation7x7", isolation7x7_variant());
     add("snailtrail", snailtrail_variant());
+    add("fox-and-hounds", fox_and_hounds_variant());
+#ifdef ALLVARS
     add("duck", duck_variant());
-    add("joust", joust_variant());
 #endif
+    add("joust", joust_variant());
     add("3check", threecheck_variant());
     add("5check", fivecheck_variant());
     add("crazyhouse", crazyhouse_variant());
@@ -1803,6 +1832,7 @@ void VariantMap::init() {
     add("losalamos", losalamos_variant());
     add("gardner", gardner_variant());
     add("almost", almost_variant());
+    add("sortofalmost", sortofalmost_variant());
     add("chigorin", chigorin_variant());
     add("perfect", perfect_variant());
     add("spartan", spartan_variant());
@@ -1879,7 +1909,7 @@ void VariantMap::parse_istream(std::istream& file) {
             if (ss.peek() != ';' && ss.peek() != '#')
             {
                 if (DoCheck && !input.empty() && input.find('=') == std::string::npos)
-                    std::cerr << "Invalid sytax: '" << input << "'." << std::endl;
+                    std::cerr << "Invalid syntax: '" << input << "'." << std::endl;
                 if (std::getline(std::getline(ss, key, '=') >> std::ws, value) && !key.empty())
                     attribs[key.erase(key.find_last_not_of(" ") + 1)] = value;
             }
