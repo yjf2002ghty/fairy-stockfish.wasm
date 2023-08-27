@@ -348,10 +348,10 @@ Position& Position::set(const Variant* v, const string& fenStr, bool isChess960,
 
           token = char(toupper(token));
 
-          if (token == 'K')
+          if (castling_enabled() && token == 'K')
               for (rsq = make_square(var->castlingRookKingsideFile, castling_rank(c)); !(castling_rook_pieces(c) & type_of(piece_on(rsq))) || color_of(piece_on(rsq)) != c; --rsq) {}
 
-          else if (token == 'Q')
+          else if (castling_enabled() && token == 'Q')
               for (rsq = make_square(var->castlingRookQueensideFile, castling_rank(c)); !(castling_rook_pieces(c) & type_of(piece_on(rsq))) || color_of(piece_on(rsq)) != c; ++rsq) {}
 
           else if (token >= 'A' && token <= 'A' + max_file())
@@ -428,6 +428,7 @@ Position& Position::set(const Variant* v, const string& fenStr, bool isChess960,
               // c) there is no piece on epSquare or behind epSquare
               if (   (var->enPassantRegion & epSquare)
                   && (   !var->fastAttacks
+                      || (var->enPassantTypes[sideToMove] & ~piece_set(PAWN))
                       || (   pawn_attacks_bb(~sideToMove, epSquare) & pieces(sideToMove, PAWN)
                           && (   (pieces(~sideToMove, PAWN) & (epSquare + pawn_push(~sideToMove)))
                               || (pieces(~sideToMove, PAWN) & (epSquare + 2 * pawn_push(~sideToMove))))
@@ -698,7 +699,7 @@ string Position::fen(bool sfen, bool showPromoted, int countStarted, std::string
                   ss << piece_to_char()[piece_on(make_square(f, r))];
 
                   // Set promoted pieces
-                  if (((captures_to_hand() && !drop_loop()) || showPromoted) && is_promoted(make_square(f, r)))
+                  if (((captures_to_hand() && !drop_loop()) || two_boards() ||  showPromoted) && is_promoted(make_square(f, r)))
                       ss << "~";
               }
           }
@@ -1174,6 +1175,14 @@ bool Position::legal(Move m) const {
   // Petrifying the king is illegal
   if (var->petrifyOnCapture && capture(m) && type_of(moved_piece(m)) == KING)
       return false;
+
+  // mutuallyImmuneTypes (diplomacy in Atomar)-- In no-check Atomic, kings can be beside each other, but in Atomar, this prevents them from actually taking.
+  // Generalized to allow a custom set of pieces that can't capture a piece of the same type.
+  if (capture(m) &&
+      (mutually_immune_types() & type_of(moved_piece(m))) &&
+      (type_of(moved_piece(m)) == type_of(piece_on(to)))
+  )
+  return false;
 
   // En passant captures are a tricky special case. Because they are rather
   // uncommon, we do it simply by testing whether the king is attacked after
@@ -1660,7 +1669,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       // Find end of rows to be flipped
       if (flip_enclosed_pieces() == REVERSI)
       {
-          Bitboard b = attacks_bb(us, QUEEN, to, board_bb() & ~pieces(~us)) & ~PseudoAttacks[us][KING][to] & pieces(us);
+          Bitboard b = attacks_bb(us, QUEEN, to, ~pieces(~us)) & ~PseudoAttacks[us][KING][to] & pieces(us);
           while(b)
               st->flippedPieces |= between_bb(pop_lsb(b), to) ^ to;
       }
@@ -1790,7 +1799,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
               || std::abs(int(to) - int(from)) == 3 * NORTH))
       {
           if (   (var->enPassantRegion & (to - pawn_push(us)))
-              && (pawn_attacks_bb(us, to - pawn_push(us)) & pieces(them, PAWN))
+              && ((pawn_attacks_bb(us, to - pawn_push(us)) & pieces(them, PAWN)) || var->enPassantTypes[them] & ~piece_set(PAWN))
               && !(wall_gating() && gating_square(m) == to - pawn_push(us)))
           {
               st->epSquares |= to - pawn_push(us);
@@ -1798,7 +1807,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
           }
           if (   std::abs(int(to) - int(from)) == 3 * NORTH
               && (var->enPassantRegion & (to - 2 * pawn_push(us)))
-              && (pawn_attacks_bb(us, to - 2 * pawn_push(us)) & pieces(them, PAWN))
+              && ((pawn_attacks_bb(us, to - 2 * pawn_push(us)) & pieces(them, PAWN)) || var->enPassantTypes[them] & ~piece_set(PAWN))
               && !(wall_gating() && gating_square(m) == to - 2 * pawn_push(us)))
           {
               st->epSquares |= to - 2 * pawn_push(us);
@@ -1920,13 +1929,19 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   if (cambodian_moves() && type_of(pc) == ROOK && (square<KING>(them) & gates(them) & attacks_bb<ROOK>(to)))
       st->gatesBB[them] ^= square<KING>(them);
 
+
   // Remove the blast pieces
   if (captured && (blast_on_capture() || var->petrifyOnCapture))
   {
       std::memset(st->unpromotedBycatch, 0, sizeof(st->unpromotedBycatch));
       st->demotedBycatch = st->promotedBycatch = 0;
-      Bitboard blast =  blast_on_capture() ? (attacks_bb<KING>(to) & ((pieces(WHITE) | pieces(BLACK)) ^ pieces(PAWN))) | to
-                      : type_of(pc) != PAWN ? square_bb(to) : Bitboard(0);
+      Bitboard blastImmune = 0;
+      for (PieceSet ps = blast_immune_types(); ps;){
+          PieceType pt = pop_lsb(ps);
+          blastImmune |= pieces(pt);
+      };
+      Bitboard blast = blast_on_capture() ? ((attacks_bb<KING>(to) & ((pieces(WHITE) | pieces(BLACK)) ^ pieces(PAWN))) | to)
+                       & (pieces() ^ blastImmune) : type_of(pc) != PAWN ? square_bb(to) : Bitboard(0);
       while (blast)
       {
           Square bsq = pop_lsb(blast);
@@ -1988,7 +2003,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
           }
 
           // Make a wall square where the piece was
-          if (var->petrifyOnCapture)
+          if (bsq == to ? var->petrifyOnCapture : var->petrifyBlastPieces)
           {
               st->wallSquares |= bsq;
               byTypeBB[ALL_PIECES] |= bsq;
@@ -2716,7 +2731,8 @@ bool Position::is_immediate_game_end(Value& result, int ply) const {
   if (connect_n() > 0)
   {
       Bitboard b;
-      for (Direction d : {NORTH, NORTH_EAST, EAST, SOUTH_EAST})
+
+      for (Direction d : var->connect_directions)
       {
           b = pieces(~sideToMove);
           for (int i = 1; i < connect_n() && b; i++)
