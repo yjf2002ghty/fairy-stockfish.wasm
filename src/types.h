@@ -302,7 +302,11 @@ enum ChasingRule {
 };
 
 enum EnclosingRule {
-  NO_ENCLOSING, REVERSI, ATAXX
+  NO_ENCLOSING, REVERSI, ATAXX, QUADWRANGLE, SNORT, ANYSIDE, TOP
+};
+
+enum WallingRule {
+  NO_WALLING, ARROW, DUCK, EDGE, PAST, STATIC
 };
 
 enum OptBool {

@@ -460,6 +460,20 @@ namespace {
         v->extinctionPieceTypes = piece_set(ALL_PIECES);
         return v;
     }
+    // Petrified
+    // Sideways pawns + petrification on capture
+    // https://www.chess.com/variants/petrified
+    Variant* petrified_variant() {
+        Variant* v = pawnsideways_variant()->init();
+        v->remove_piece(KING);
+        v->add_piece(COMMONER, 'k');
+        v->castlingKingPiece[WHITE] = v->castlingKingPiece[BLACK] = COMMONER;
+        v->extinctionValue = -VALUE_MATE;
+        v->extinctionPieceTypes = piece_set(COMMONER);
+        v->extinctionPseudoRoyal = true;
+        v->petrifyOnCaptureTypes = piece_set(COMMONER) | QUEEN | ROOK | BISHOP | KNIGHT;
+        return v;
+    }
     // Atomic chess without checks (ICC rules)
     // https://www.chessclub.com/help/atomic
     Variant* nocheckatomic_variant() {
@@ -493,6 +507,7 @@ namespace {
 
 #ifdef ALLVARS
     // Duck chess
+    // https://duckchess.com/
     Variant* duck_variant() {
         Variant* v = chess_variant_base()->init();
         v->remove_piece(KING);
@@ -500,7 +515,7 @@ namespace {
         v->castlingKingPiece[WHITE] = v->castlingKingPiece[BLACK] = COMMONER;
         v->extinctionValue = -VALUE_MATE;
         v->extinctionPieceTypes = piece_set(COMMONER);
-        v->duckGating = true;
+        v->wallingRule = DUCK;
         v->stalemateValue = VALUE_MATE;
         return v;
     }
@@ -512,10 +527,10 @@ namespace {
         v->maxFile = FILE_F;
         v->reset_pieces();
         v->add_piece(CUSTOM_PIECE_1, 'p', "mK"); //move as a King, but can't capture
-        v->startFen = "2p3/6/6/6/6/6/6/3P2 w - - 0 1";
+        v->startFen = "3p2/6/6/6/6/6/6/2P3 w - - 0 1";
         v->stalemateValue = -VALUE_MATE;
-        v->staticGating = true;
-        v->staticGatingRegion = AllSquares ^ make_bitboard(SQ_C1, SQ_D8);
+        v->wallingRule = STATIC;
+        v->wallingRegion[WHITE] = v->wallingRegion[BLACK] = AllSquares ^ make_bitboard(SQ_C1, SQ_D8);
         return v;
     }
 
@@ -524,7 +539,7 @@ namespace {
         v->maxRank = RANK_7;
         v->maxFile = FILE_G;
         v->startFen = "3p3/7/7/7/7/7/3P3 w - - 0 1";
-        v->staticGatingRegion = AllSquares ^ make_bitboard(SQ_D1, SQ_D7);
+        v->wallingRegion[WHITE] = v->wallingRegion[BLACK] = AllSquares ^ make_bitboard(SQ_D1, SQ_D7);
         return v;
     }
 
@@ -536,7 +551,7 @@ namespace {
         v->add_piece(CUSTOM_PIECE_1, 'p', "mK"); //move as a King, but can't capture
         v->startFen = "6p/7/7/7/7/7/P6 w - - 0 1";
         v->stalemateValue = -VALUE_MATE;
-        v->pastGating = true;
+        v->wallingRule = PAST;
         return v;
     }
 
@@ -547,7 +562,7 @@ namespace {
         v->add_piece(CUSTOM_PIECE_1, 'n', "mN"); //move as a Knight, but can't capture
         v->startFen = "8/8/8/4n3/3N4/8/8/8 w - - 0 1";
         v->stalemateValue = -VALUE_MATE;
-        v->pastGating = true;
+        v->wallingRule = PAST;
         return v;
     }
 
@@ -1121,10 +1136,12 @@ namespace {
         v->immobilityIllegal = false;
         v->stalemateValue = -VALUE_MATE;
         v->stalematePieceCount = true;
-        v->passOnStalemate = true;
+        v->passOnStalemate[WHITE] = true;
+        v->passOnStalemate[BLACK] = true;
         v->enclosingDrop = ATAXX;
         v->flipEnclosedPieces = ATAXX;
         v->materialCounting = UNWEIGHTED_MATERIAL;
+        v->adjudicateFullBoard = true;
         v->nMoveRule = 0;
         v->freeDrops = true;
         return v;
@@ -1145,11 +1162,13 @@ namespace {
         v->immobilityIllegal = false;
         v->stalemateValue = -VALUE_MATE;
         v->stalematePieceCount = true;
-        v->passOnStalemate = false;
+        v->passOnStalemate[WHITE] = false;
+        v->passOnStalemate[BLACK] = false;
         v->enclosingDrop = REVERSI;
         v->enclosingDropStart = make_bitboard(SQ_D4, SQ_E4, SQ_D5, SQ_E5);
         v->flipEnclosedPieces = REVERSI;
         v->materialCounting = UNWEIGHTED_MATERIAL;
+        v->adjudicateFullBoard = true;
         return v;
     }
     // Flipello
@@ -1157,7 +1176,8 @@ namespace {
     Variant* flipello_variant() {
         Variant* v = flipersi_variant()->init();
         v->startFen = "8/8/8/3pP3/3Pp3/8/8/8[PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPpppppppppppppppppppppppppppppppp] w 0 1";
-        v->passOnStalemate = true;
+        v->passOnStalemate[WHITE] = true;
+        v->passOnStalemate[BLACK] = true;
         return v;
     }
     // Minixiangqi
@@ -1653,7 +1673,7 @@ namespace {
         v->add_piece(CUSTOM_PIECE_1, 'q', "mQ");
         v->startFen = "3q2q3/10/10/q8q/10/10/Q8Q/10/10/3Q2Q3 w - - 0 1";
         v->stalemateValue = -VALUE_MATE;
-        v->arrowGating = true;
+        v->wallingRule = ARROW;
         return v;
     }
 #endif
@@ -1727,7 +1747,8 @@ namespace {
         v->materialCounting = JANGGI_MATERIAL;
         v->diagonalLines = make_bitboard(SQ_D1, SQ_F1, SQ_E2, SQ_D3, SQ_F3,
                                          SQ_D8, SQ_F8, SQ_E9, SQ_D10, SQ_F10);
-        v->pass = true;
+        v->pass[WHITE] = true;
+        v->pass[BLACK] = true;
         v->nFoldValue = VALUE_DRAW;
         v->perpetualCheckIllegal = true;
         return v;
@@ -1805,13 +1826,14 @@ void VariantMap::init() {
     add("kinglet", kinglet_variant());
     add("threekings", threekings_variant());
     add("horde", horde_variant());
+    add("petrified", petrified_variant());
     add("nocheckatomic", nocheckatomic_variant());
     add("atomic", atomic_variant());
+    add("atomar", atomar_variant());
     add("isolation", isolation_variant());
     add("isolation7x7", isolation7x7_variant());
     add("snailtrail", snailtrail_variant());
     add("fox-and-hounds", fox_and_hounds_variant());
-    add("atomar", atomar_variant());
 #ifdef ALLVARS
     add("duck", duck_variant());
 #endif
@@ -2013,6 +2035,7 @@ Variant* Variant::conclude() {
                   && !makpongRule
                   && !connectN
                   && !blastOnCapture
+                  && !petrifyOnCaptureTypes
                   && !capturesToHand
                   && !twoBoards
                   && !restrictedMobility
@@ -2040,6 +2063,17 @@ Variant* Variant::conclude() {
         connect_directions.push_back(NORTH_EAST);
         connect_directions.push_back(SOUTH_EAST);
     }
+
+    // If not a connect variant, set connectPieceTypes to no pieces.
+    if ( !(connectRegion1[WHITE] || connectRegion1[BLACK] || connectN || connectNxN || collinearN) )
+    {
+          connectPieceTypes = NO_PIECE_SET;
+    }
+    //Otherwise optimize to pieces actually in the game.
+    else
+    {
+        connectPieceTypes = connectPieceTypes & pieceTypes;
+    };
 
     return this;
 }
