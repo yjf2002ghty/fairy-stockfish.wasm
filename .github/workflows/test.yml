@@ -24,3 +24,17 @@ jobs:
         run: |  
           echo "Source Branch: ${{ github.event.pull_request.head.ref }}"  
           echo "Target Branch: ${{ github.event.pull_request.base.ref }}"
+
+      - name: Print source repository URL and branch name  
+        run: |  
+          source_repo_url="${GITHUB_SERVER_URL}/${github.event.pull_request.head.repo.full_name}"  
+          source_branch="${github.event.pull_request.head.ref}"  
+          echo "Source Repository URL: $source_repo_url"  
+          echo "Source Branch: $source_branch"  
+   
+      - name: Print target repository URL and branch name  
+        run: |  
+          target_repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"  
+          target_branch="${github.event.pull_request.base.ref}"  
+          echo "Target Repository URL: $target_repo_url"  
+          echo "Target Branch: $target_branch"
