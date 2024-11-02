@@ -1,0 +1,26 @@
+name: Example Workflow  
+  
+on:  
+  pull_request:  
+    types: [opened, synchronize, reopened]  
+  
+jobs:  
+  print-urls:  
+    runs-on: ubuntu-latest  
+    steps:  
+      - name: Checkout code  
+        uses: actions/checkout@v2  
+  
+      - name: Print repository URL  
+        run: |  
+          echo "Repository URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"  
+   
+      - name: Print Pull Request URL  
+        if: github.event_name == 'pull_request'  
+        run: |  
+          echo "Pull Request URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${{ github.event.pull_request.number }}"
+
+      - name: Print source and target branch names  
+        run: |  
+          echo "Source Branch: ${{ github.event.pull_request.head.ref }}"  
+          echo "Target Branch: ${{ github.event.pull_request.base.ref }}"
