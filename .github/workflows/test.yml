@@ -16,6 +16,12 @@ jobs:
           lscpu
           lsmem
           df -h
+          echo ""
+          physical_cpus=$(grep 'physical id' /proc/cpuinfo | sort -u | wc -l)
+          cores_per_cpu=$(grep 'cpu cores' /proc/cpuinfo | uniq | awk -F: '{print $2}')
+          total_cores=$((physical_cpus * cores_per_cpu))
+          echo "Total CPU cores: $total_cores"
+          echo ""
   
       - name: Print repository URL  
         run: |  
