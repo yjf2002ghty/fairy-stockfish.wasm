@@ -121,6 +121,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: fairy-stockfish.wasm
-          path: src/emscripten/public/stockfish*
+          path: src/emscripten/public/*
           compression-level: 9
           if-no-files-found: error
