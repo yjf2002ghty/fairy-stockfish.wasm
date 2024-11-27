@@ -1,0 +1,52 @@
+name: Example Workflow  
+  
+on:  
+  pull_request:  
+    types: [opened, synchronize, reopened]  
+  
+jobs:  
+  print-urls:  
+    runs-on: ubuntu-latest  
+    steps:  
+      - name: Checkout code  
+        uses: actions/checkout@v2  
+
+      - name: Print System Information
+        run: |  
+          lscpu
+          lsmem
+          df -h
+          echo ""
+          physical_cpus=$(grep 'physical id' /proc/cpuinfo | sort -u | wc -l)
+          cores_per_cpu=$(grep 'cpu cores' /proc/cpuinfo | uniq | awk -F: '{print $2}')
+          total_cores=$((physical_cpus * cores_per_cpu))
+          echo "Total CPU cores: $total_cores"
+          echo ""
+  
+      - name: Print repository URL  
+        run: |  
+          echo "Repository URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"  
+   
+      - name: Print Pull Request URL  
+        if: github.event_name == 'pull_request'  
+        run: |  
+          echo "Pull Request URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${{ github.event.pull_request.number }}"
+
+      - name: Print source and target branch names  
+        run: |  
+          echo "Source Branch: ${{ github.event.pull_request.head.ref }}"  
+          echo "Target Branch: ${{ github.event.pull_request.base.ref }}"
+
+      - name: Print source repository URL and branch name  
+        run: |  
+          source_repo_url="${GITHUB_SERVER_URL}/${{ github.event.pull_request.head.repo.full_name }}"  
+          source_branch="${{ github.event.pull_request.head.ref }}"  
+          echo "Source Repository URL: $source_repo_url"  
+          echo "Source Branch: $source_branch"  
+   
+      - name: Print target repository URL and branch name  
+        run: |  
+          target_repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"  
+          target_branch="${{ github.event.pull_request.base.ref }}"  
+          echo "Target Repository URL: $target_repo_url"  
+          echo "Target Branch: $target_branch"
