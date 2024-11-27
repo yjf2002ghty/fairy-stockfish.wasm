@@ -25,6 +25,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: sudo apt update && sudo apt -y install docker
+      
       - run: docker-compose pull
 
       - name: Extract bench signature from git log
